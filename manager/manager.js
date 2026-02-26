@@ -536,8 +536,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchInput = document.getElementById('emojiSearch');
 
         function renderEmojis(filter) {
-            const emojis = filter
-                ? EMOJI_LIST.filter(() => true)
+            const query = (filter || '').toLowerCase().trim();
+            const emojis = query
+                ? EMOJI_LIST.filter(e => e.includes(query))
                 : EMOJI_LIST;
 
             grid.innerHTML = emojis.map(e =>
