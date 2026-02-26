@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marklet</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="popup">
+        <header class="popup-header">
+            <div class="popup-title">
+                <span class="popup-logo">⚡</span>
+                <h1>Marklet</h1>
+            </div>
+            <button id="openManager" class="icon-btn" title="Open Manager">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+            </button>
+        </header>
+
+        <div class="popup-search">
+            <input type="text" id="searchInput" placeholder="Search bookmarklets..." autocomplete="off">
+        </div>
+
+        <div id="bookmarkletList" class="popup-list">
+            <div class="empty-state">
+                <p class="text-muted">No bookmarklets yet.</p>
+                <button id="emptyOpenManager" class="btn-link">Open Manager to add some</button>
+            </div>
+        </div>
+
+        <footer class="popup-footer">
+            <span class="text-faint" id="countLabel">0 bookmarklets</span>
+        </footer>
+    </div>
+
+    <script src="../shared/storage.js"></script>
+    <script src="../shared/utils.js"></script>
+    <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marklet — Manager</title>
+    <link rel="stylesheet" href="manager.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <span class="logo">⚡</span>
+                <h1>Marklet</h1>
+            </div>
+
+            <div class="sidebar-search">
+                <input type="text" id="sidebarSearch" placeholder="Search..." autocomplete="off">
+            </div>
+
+            <div class="sidebar-actions">
+                <button id="newBookmarklet" class="btn btn-primary btn-sm btn-full">+ New Bookmarklet</button>
+            </div>
+
+            <nav id="sidebarNav" class="sidebar-nav">
+                <!-- Populated by JS -->
+            </nav>
+
+            <div class="sidebar-footer">
+                <button id="importBtn" class="btn btn-secondary btn-sm btn-full">Import</button>
+                <button id="exportBtn" class="btn btn-secondary btn-sm btn-full">Export</button>
+                <input type="file" id="importFile" accept=".json" class="hidden">
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Empty state -->
+            <div id="emptyState" class="main-empty">
+                <div class="empty-hero">
+                    <span class="empty-icon">⚡</span>
+                    <h2>Welcome to Marklet</h2>
+                    <p class="text-muted">Create your first bookmarklet to get started.</p>
+                    <button id="emptyNewBtn" class="btn btn-primary">+ New Bookmarklet</button>
+                </div>
+            </div>
+
+            <!-- Editor -->
+            <div id="editorPanel" class="editor-panel hidden">
+                <div class="editor-topbar">
+                    <div class="editor-title-row">
+                        <div class="favicon-picker" id="faviconPicker" title="Click to change icon">
+                            <span id="faviconPreview">⚡</span>
+                        </div>
+                        <input type="text" id="bmName" placeholder="Bookmarklet name..." class="editor-name-input">
+                    </div>
+                    <div class="editor-meta-row">
+                        <div class="field-group">
+                            <label for="bmCategory">Category</label>
+                            <div class="category-row">
+                                <select id="bmCategory"></select>
+                                <button id="addCategoryBtn" class="icon-btn" title="Add category">+</button>
+                            </div>
+                        </div>
+                        <div class="field-group">
+                            <label for="bmTags">Tags</label>
+                            <input type="text" id="bmTags" placeholder="comma, separated, tags">
+                        </div>
+                        <div class="field-group">
+                            <label for="bmDescription">Description</label>
+                            <input type="text" id="bmDescription" placeholder="What does this bookmarklet do?">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Code Editor -->
+                <div class="code-editor-wrapper">
+                    <div class="code-editor-toolbar">
+                        <span class="code-editor-label">JavaScript</span>
+                        <div class="code-editor-actions">
+                            <button id="formatBtn" class="tool-btn" title="Format / Beautify code">Format</button>
+                            <button id="minifyBtn" class="tool-btn" title="Minify code">Minify</button>
+                            <button id="wrapIIFEBtn" class="tool-btn" title="Wrap in IIFE">Wrap IIFE</button>
+                        </div>
+                    </div>
+                    <div class="code-editor" id="codeEditor">
+                        <div class="line-numbers" id="lineNumbers"></div>
+                        <div class="editor-layers">
+                            <pre class="highlight-layer" id="highlightLayer"><code id="highlightCode"></code></pre>
+                            <textarea class="input-layer" id="codeInput" placeholder="// Write your bookmarklet code here..." spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action bar -->
+                <div class="editor-actions">
+                    <div class="editor-actions-left">
+                        <button id="runBtn" class="btn btn-primary btn-sm">▶ Run on Tab</button>
+                        <button id="copyUrlBtn" class="btn btn-secondary btn-sm">Copy URL</button>
+                        <button id="saveBtn" class="btn btn-secondary btn-sm">Save</button>
+                    </div>
+                    <div class="editor-actions-right">
+                        <span id="runCountLabel" class="text-faint run-count"></span>
+                        <button id="deleteBtn" class="btn btn-danger btn-sm">Delete</button>
+                    </div>
+                </div>
+
+                <!-- Status bar -->
+                <div class="status-bar">
+                    <span id="statusMsg" class="text-faint"></span>
+                    <span id="charCount" class="text-faint"></span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Favicon Picker Modal -->
+    <div id="faviconModal" class="overlay">
+        <div class="panel">
+            <h2>Choose Icon</h2>
+            <div class="favicon-modal-tabs">
+                <button class="tab-btn active" data-tab="emoji">Emoji</button>
+                <button class="tab-btn" data-tab="url">Image URL</button>
+                <button class="tab-btn" data-tab="upload">Upload</button>
+            </div>
+
+            <div id="emojiTab" class="favicon-tab">
+                <div class="emoji-search">
+                    <input type="text" id="emojiSearch" placeholder="Search emoji...">
+                </div>
+                <div class="emoji-grid" id="emojiGrid"></div>
+            </div>
+
+            <div id="urlTab" class="favicon-tab hidden">
+                <label for="faviconUrlInput">Image URL</label>
+                <input type="text" id="faviconUrlInput" placeholder="https://example.com/icon.png">
+                <div class="favicon-url-preview" id="faviconUrlPreview"></div>
+                <button id="faviconUrlSave" class="btn btn-primary btn-sm" style="margin-top:12px">Use this icon</button>
+            </div>
+
+            <div id="uploadTab" class="favicon-tab hidden">
+                <label>Upload an image (will be stored as data URL)</label>
+                <input type="file" id="faviconFileInput" accept="image/*">
+                <div class="favicon-url-preview" id="faviconUploadPreview"></div>
+            </div>
+
+            <div class="panel-actions">
+                <button id="faviconModalClose" class="btn btn-secondary btn-sm">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="overlay">
+        <div class="panel">
+            <h2>Delete Bookmarklet</h2>
+            <p style="margin: 12px 0;">Are you sure you want to delete <strong id="deleteTargetName"></strong>?</p>
+            <div class="panel-actions">
+                <button id="deleteCancel" class="btn btn-secondary btn-sm">Cancel</button>
+                <button id="deleteConfirm" class="btn btn-danger btn-sm">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Modal -->
+    <div id="categoryModal" class="overlay">
+        <div class="panel">
+            <h2>Add Category</h2>
+            <label for="newCategoryInput">Category Name</label>
+            <input type="text" id="newCategoryInput" placeholder="e.g. Development">
+            <div class="panel-actions">
+                <button id="categoryCancel" class="btn btn-secondary btn-sm">Cancel</button>
+                <button id="categorySave" class="btn btn-primary btn-sm">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../shared/storage.js"></script>
+    <script src="../shared/highlighter.js"></script>
+    <script src="../shared/utils.js"></script>
+    <script src="manager.js"></script>
+</body>
+</html>
