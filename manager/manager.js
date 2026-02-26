@@ -22,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const lineNumbers = document.getElementById('lineNumbers');
     const faviconPreview = document.getElementById('faviconPreview');
     const faviconPicker = document.getElementById('faviconPicker');
-    const editorLayers = document.querySelector('.editor-layers');
 
     /* Buttons */
     const saveBtn = document.getElementById('saveBtn');
@@ -61,7 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
         '🔔', '🔕', '📣', '📯', '🕐', '⏱️', '⏰', '📅',
         '🔒', '🔓', '🔑', '🛡️', '🐛', '🐞', '🧪', '🔬',
         '📦', '🎁', '🧩', '🎲', '🎮', '🕹️', '📸', '🎵',
-        '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
         '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪',
         '🅰️', '🅱️', '🆎', '🆑', '🔤', '🔠', '🔡', '🔢',
         '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣',
@@ -72,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
        ================================================================ */
 
     async function init() {
+        await Storage.migrateIfNeeded();
         await loadData();
         renderSidebar();
         populateCategories();
@@ -96,9 +95,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadData() {
-        const data = await Storage.getAll();
-        allBookmarklets = data.bookmarklets || [];
-        categories = data.categories || ['Uncategorized'];
+        allBookmarklets = await Storage.getBookmarklets();
+        categories = await Storage.getCategories();
         allBookmarklets.sort((a, b) => (a.order || 0) - (b.order || 0));
     }
 
@@ -144,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const [cat, items] of Object.entries(grouped)) {
             if (items.length === 0 && query) continue;
             const isDefault = cat === 'Uncategorized';
-            const deleteBtn = isDefault ? '' :
+            const deleteCatBtn = isDefault ? '' :
                 `<button class="sidebar-delete-cat" data-cat="${Utils.escapeHtml(cat)}" title="Delete category">×</button>`;
 
             html += `
@@ -152,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="sidebar-category-header">
                         <span class="sidebar-category-name">${Utils.escapeHtml(cat)}</span>
                         <div style="display:flex;align-items:center;gap:4px">
-                            ${deleteBtn}
+                            ${deleteCatBtn}
                             <span class="sidebar-category-toggle">▼</span>
                         </div>
                     </div>
@@ -275,23 +273,10 @@ document.addEventListener('DOMContentLoaded', () => {
        BOOKMARKLET CRUD
        ================================================================ */
 
-    function createNew() {
-        const id = Storage.generateId();
-        const bm = {
-            id,
-            name: '',
-            description: '',
-            code: '',
-            favicon: { type: 'emoji', value: '⚡' },
-            category: 'Uncategorized',
-            tags: [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            runCount: 0,
-            order: allBookmarklets.length
-        };
+    async function createNew() {
+        const bm = await Storage.createBookmarklet('Uncategorized');
         allBookmarklets.push(bm);
-        currentId = id;
+        currentId = bm.id;
         loadEditor(bm);
         renderSidebar();
         showEmptyOrEditor();
@@ -312,7 +297,11 @@ document.addEventListener('DOMContentLoaded', () => {
         bmName.value = bm.name || '';
         bmDescription.value = bm.description || '';
         bmTags.value = (bm.tags || []).join(', ');
-        codeInput.value = bm.code || '';
+
+        // Prettify the one-line bookmark URL into readable code for editing
+        const rawCode = Utils.fromBookmarkletUrl(bm.url || bm.code || '');
+        codeInput.value = Utils.formatCode(rawCode);
+
         currentFavicon = bm.favicon || { type: 'emoji', value: '⚡' };
         updateFaviconPreview();
         populateCategories();
@@ -331,7 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         bm.name = bmName.value.trim() || 'Untitled';
         bm.description = bmDescription.value.trim();
-        bm.code = codeInput.value;
+        bm.code = codeInput.value; // pretty-printed — Storage.saveBookmarklet will smoosh it
         bm.category = bmCategory.value;
         bm.tags = bmTags.value.split(',').map(t => t.trim()).filter(Boolean);
         bm.favicon = currentFavicon;
@@ -339,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await Storage.saveBookmarklet(bm);
         await loadData();
         renderSidebar();
-        showStatus('Saved!', 'success');
+        showStatus('Saved — bookmark updated!', 'success');
     }
 
     async function deleteCurrent() {
@@ -359,10 +348,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const bm = allBookmarklets.find(b => b.id === currentId);
         if (!bm) return;
 
+        // Send the smooshed code for execution
         const code = codeInput.value || bm.code;
         chrome.runtime.sendMessage({
             action: 'runBookmarklet',
-            code: code,
+            code: Utils.buildBookmarkUrl(code),
             id: bm.id
         });
         showStatus('Running...', 'success');
@@ -373,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function copyUrl() {
         const code = codeInput.value;
         if (!code.trim()) { showStatus('No code to copy', 'warning'); return; }
-        const url = Utils.toBookmarkletUrl(code);
+        const url = Utils.buildBookmarkUrl(code);
         navigator.clipboard.writeText(url).then(() => {
             showStatus('Copied bookmarklet URL!', 'success');
         });
@@ -481,7 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const code = codeInput.value;
         const chars = code.length;
         const lines = code.split('\n').length;
-        const urlLen = Utils.toBookmarkletUrl(code).length;
+        const urlLen = Utils.buildBookmarkUrl(code).length;
         charCount.textContent = `${lines} lines · ${chars} chars · URL: ${urlLen} chars`;
     }
 
@@ -644,13 +634,13 @@ document.addEventListener('DOMContentLoaded', () => {
         formatBtn.addEventListener('click', () => {
             codeInput.value = Utils.formatCode(codeInput.value);
             codeInput.dispatchEvent(new Event('input'));
-            showStatus('Formatted', 'success');
+            showStatus('Formatted with js-beautify', 'success');
         });
 
         minifyBtn.addEventListener('click', () => {
-            codeInput.value = Utils.minifyCode(codeInput.value);
+            codeInput.value = Utils.smooshCode(codeInput.value);
             codeInput.dispatchEvent(new Event('input'));
-            showStatus('Minified', 'success');
+            showStatus('Smooshed to one line', 'success');
         });
 
         wrapIIFEBtn.addEventListener('click', () => {

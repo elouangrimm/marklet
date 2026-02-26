@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let allBookmarklets = [];
 
     async function load() {
+        await Storage.migrateIfNeeded();
         allBookmarklets = await Storage.getBookmarklets();
         allBookmarklets.sort((a, b) => (a.order || 0) - (b.order || 0));
         render(allBookmarklets);
@@ -72,9 +73,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const bm = allBookmarklets.find(b => b.id === id);
         if (!bm) return;
 
+        // Send the actual bookmark URL for execution
         chrome.runtime.sendMessage({
             action: 'runBookmarklet',
-            code: bm.code,
+            code: bm.url || bm.code,
             id: bm.id
         });
 
